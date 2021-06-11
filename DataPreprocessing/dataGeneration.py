@@ -12,7 +12,7 @@ from scipy.linalg import expm,inv,block_diag
 
 # path to KITTI intrinsics data
 M_file = osp.join((osp.dirname(__file__) or "."),
-                  "../stereoData8/calib.txt")
+                  "..", "stereoData8", "calib.txt")
 
 MM = 400 #Number of time steps for the eight-shaped path (preferably above 40 steps)
 half_path = 10 #in meters
@@ -29,7 +29,7 @@ uv_sigma = 5*np.eye(4) # perturbation covariance matrix of u v pixel coordinates
 prior_sigma = 0.7 # Covariance of the prior features positions for initialization if the triangulation is not used (in meters)
 
 # Path where generated data is to be saved.
-save_path = osp.join((osp.dirname(__file__) or "."), '../stereoData8_distributed/')
+save_path = osp.join((osp.dirname(__file__) or "."), '..', 'stereoData8_distributed')
 
 #%%
 # Functions
@@ -322,6 +322,14 @@ plt.show()
 
 # Constraints
 def generate_feature_message_positions(features, poses_gt):
+    """
+    Returns features_messages_positions for each timestep
+    [
+    { landmark_id_1 : landmark_uv_1,
+    landmark_id_2 : landmark_uv_2,
+    }
+    ]
+    """
     invPoses_gt = batch_invert_poses(poses_gt)
     x_lim = (M[0,2]-50)/M[0,0] # camera sight limit c_u/f_u (camera coordinates)
     y_lim = (M[1,2]-10)/M[1,1] # c_v/f_v
@@ -338,7 +346,8 @@ def generate_feature_message_positions(features, poses_gt):
         z_constraint = np.logical_and(rel_features[2,:]> z_low_lim, rel_features[2,:]< z_up_lim)
         constraint = np.logical_and(x_constraint,np.logical_and(z_constraint, y_constraint))
         ID_seen = np.array(np.where(constraint)).squeeze(axis=0)
-        message = {ID_seen[x]:homo_features[:,ID_seen[x]] for x in np.arange(len(ID_seen))}
+        message = {ID_seen[x]:homo_features[:,ID_seen[x]]
+                   for x in np.arange(len(ID_seen))}
         features_messages_positions.append(message)
     #%%
     #Check previous step
@@ -381,11 +390,10 @@ for k in range(len(features_messages_positions)):
     artists.append(ax.scatter(poses_gt_3[k, 0, 3].T, poses_gt_3[k, 1, 3].T, s = 30, color='b'))
     artists.append(ax.set_title('features seen at time k = %d' % k))
     artist_list.append(artists)
-    plt.savefig('frames/%04d.png' % k)
     plt.pause(0.001)
 
 anim = animation.ArtistAnimation(fig, artist_list,interval=50)
-anim.save('./generatedData.mp4')
+anim.save('generatedData.mp4')
 
 #%%
 # Simulate Camera Features (u_left,v_left,u_right,v_right) with some perturbation
@@ -409,7 +417,9 @@ for i in np.arange(len(poses_gt)):
         uv = stereo_obs_model(opt_T_b @ invPoses_gt[i],features_position_now, M)
         uv_noise = np.random.multivariate_normal(uv_mean,uv_sigma,uv.shape[1]).T
         uv_perturbed = uv + uv_noise
-        uv_message = {list(feats_poses.keys())[x]: uv_perturbed[:,x] for x in range(len(list(feats_poses.keys())))}
+        uv_message = {list(feats_poses.keys())[x]:
+                      uv_perturbed[:,x]
+                      for x in range(len(list(feats_poses.keys())))}
         features_messages.append(uv_message)
     else:
         features_messages.append(dict())
@@ -455,15 +465,41 @@ plt.title('orientation check')
 plt.show()
 #%%
 # Save Data:
-features_msg_file = save_path + 'features_messages'
-gt_poses_file = save_path + 'poses'
-inputs_file = save_path + 'inputs'
-features_gt_file = save_path + 'features_gt'
+features_msg_file = osp.join(save_path, 'features_messages')
+visible_feat_file = osp.join(save_path, 'visible_features')
+gt_poses_file = osp.join(save_path, 'poses')
+inputs_file = osp.join(save_path, 'inputs')
+features_gt_file = osp.join(save_path, 'features_gt')
 
 # Store Features Massage:
+visible_feature_ids = dict()
+visible_feature_uvs = dict()
+for t, fm_t in enumerate(features_messages):
+    fm_t_ids = np.array(list(fm_t.keys()))
+    visible_feature_ids['id_1_%d' % t] = fm_t_ids
+    fm_t_uvs = np.vstack(list(fm_t.values()))
+    visible_feature_uvs['uv_1_%d' % t] = fm_t_uvs
+
+for t, fm_t in enumerate(features_messages_2):
+    fm_t_ids = np.array(list(fm_t.keys()))
+    visible_feature_ids['id_2_%d' % t] = fm_t_ids
+    fm_t_uvs = np.vstack(list(fm_t.values()))
+    visible_feature_uvs['uv_3_%d' % t] = fm_t_uvs
+
+for t, fm_t in enumerate(features_messages_3):
+    fm_t_ids = np.array(list(fm_t.keys()))
+    visible_feature_ids['id_3_%d' % t] = fm_t_ids
+    fm_t_uvs = np.vstack(list(fm_t.values()))
+    visible_feature_uvs['uv_3_%d' % t] = fm_t_uvs
+
+
 outfile = open(features_msg_file,'wb')
 pickle.dump([features_messages, features_messages_2, features_messages_3],outfile)
 outfile.close()
+
+np.savez(visible_feat_file,
+         **visible_feature_ids,
+         **visible_feature_uvs)
 
 # Store other stuff:
 np.savez(gt_poses_file, poses_gt, poses_gt_2, poses_gt_3)
