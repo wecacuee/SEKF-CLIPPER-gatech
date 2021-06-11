@@ -392,19 +392,45 @@ anim.save('./generatedData.mp4')
 # Noise Question: Should the noise 2D vector be the same for all features in one frame?
 # Assuming No (Independence for simplicity):
 invPoses_gt = batch_invert_poses(poses_gt)
+invPoses_gt_2 = batch_invert_poses(poses_gt_2)
+invPoses_gt_3 = batch_invert_poses(poses_gt_3)
 uv_mean = np.zeros(4)
 features_messages = []
+features_messages_2 = []
+features_messages_3 = []
 for i in np.arange(len(poses_gt)):
     feats_poses = features_messages_positions[i]
+    feats_poses_2 = features_messages_positions_2[i]
+    feats_poses_3 = features_messages_positions_3[i]
     features_position_now = np.array(list(feats_poses.values())).T
+    features_position_now_2 = np.array(list(feats_poses_2.values())).T
+    features_position_now_3 = np.array(list(feats_poses_3.values())).T
     if features_position_now.size > 0:
-        uv = stereo_obs_model(opt_T_b @ invPoses_gt[i],features_position_now,M)
+        uv = stereo_obs_model(opt_T_b @ invPoses_gt[i],features_position_now, M)
         uv_noise = np.random.multivariate_normal(uv_mean,uv_sigma,uv.shape[1]).T
         uv_perturbed = uv + uv_noise
         uv_message = {list(feats_poses.keys())[x]: uv_perturbed[:,x] for x in range(len(list(feats_poses.keys())))}
         features_messages.append(uv_message)
     else:
         features_messages.append(dict())
+
+    if features_position_now_2.size > 0:
+        uv_2 = stereo_obs_model(opt_T_b @ invPoses_gt_2[i],features_position_now_2, M)
+        uv_noise_2 = np.random.multivariate_normal(uv_mean,uv_sigma,uv_2.shape[1]).T
+        uv_perturbed_2 = uv_2 + uv_noise_2
+        uv_message_2 = {list(feats_poses_2.keys())[x]: uv_perturbed_2[:,x] for x in range(len(list(feats_poses_2.keys())))}
+        features_messages_2.append(uv_message_2)
+    else:
+        features_messages_2.append(dict())
+
+    if features_position_now_3.size > 0:
+        uv_3 = stereo_obs_model(opt_T_b @ invPoses_gt_3[i],features_position_now_3, M)
+        uv_noise_3 = np.random.multivariate_normal(uv_mean,uv_sigma,uv_3.shape[1]).T
+        uv_perturbed_3 = uv_3 + uv_noise_3
+        uv_message_3 = {list(feats_poses_3.keys())[x]: uv_perturbed_3[:,x] for x in range(len(list(feats_poses_3.keys())))}
+        features_messages_3.append(uv_message_3)
+    else:
+        features_messages_3.append(dict())
 
 # %%
 # Plot of Orientation:
@@ -436,11 +462,11 @@ features_gt_file = save_path + 'features_gt'
 
 # Store Features Massage:
 outfile = open(features_msg_file,'wb')
-pickle.dump(features_messages,outfile)
+pickle.dump([features_messages, features_messages_2, features_messages_3],outfile)
 outfile.close()
 
 # Store other stuff:
-np.savez(gt_poses_file, poses_gt)
-np.savez(inputs_file, perturbed_relative_poses)
+np.savez(gt_poses_file, poses_gt, poses_gt_2, poses_gt_3)
+np.savez(inputs_file, perturbed_relative_poses, perturbed_relative_poses_2, perturbed_relative_poses_3)
 np.savez(features_gt_file, features)
 # %%
