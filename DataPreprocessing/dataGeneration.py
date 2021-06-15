@@ -477,19 +477,25 @@ visible_feature_uvs = dict()
 for t, fm_t in enumerate(features_messages):
     fm_t_ids = np.array(list(fm_t.keys()))
     visible_feature_ids['id_1_%d' % t] = fm_t_ids
-    fm_t_uvs = np.vstack(list(fm_t.values()))
+    fm_t_uvs = (np.vstack(list(fm_t.values())) 
+                if len(fm_t)
+                else np.zeros((0, 4)))
     visible_feature_uvs['uv_1_%d' % t] = fm_t_uvs
 
 for t, fm_t in enumerate(features_messages_2):
     fm_t_ids = np.array(list(fm_t.keys()))
     visible_feature_ids['id_2_%d' % t] = fm_t_ids
-    fm_t_uvs = np.vstack(list(fm_t.values()))
-    visible_feature_uvs['uv_3_%d' % t] = fm_t_uvs
+    fm_t_uvs = (np.vstack(list(fm_t.values())) 
+                if len(fm_t)
+                else np.zeros((0, 4)))
+    visible_feature_uvs['uv_2_%d' % t] = fm_t_uvs
 
 for t, fm_t in enumerate(features_messages_3):
     fm_t_ids = np.array(list(fm_t.keys()))
     visible_feature_ids['id_3_%d' % t] = fm_t_ids
-    fm_t_uvs = np.vstack(list(fm_t.values()))
+    fm_t_uvs = (np.vstack(list(fm_t.values())) 
+                if len(fm_t)
+                else np.zeros((0, 4)))
     visible_feature_uvs['uv_3_%d' % t] = fm_t_uvs
 
 
