@@ -9,7 +9,7 @@ import pickle
 from scipy.linalg import expm,inv,block_diag
 #%%
 # Parameters Selection (you only need to modify this part):
-use_normalized_camera = True
+use_normalized_camera = False
 
 # if use_normalized_camera = False then M_file is needed
 #%% 
@@ -17,7 +17,7 @@ use_normalized_camera = True
 # Intrinsics Matrix M_left:
 # path to KITTI intrinsics data
 M_file = osp.join((osp.dirname(__file__) or "."),
-                    "..", "stereoData8_distributed", "calib.txt")
+                    "..", "stereoData8", "calib.txt")
 
 MM = 400 #Number of time steps for the eight-shaped path (preferably above 40 steps)
 half_path = 10 #in meters
@@ -339,8 +339,11 @@ def generate_feature_message_positions(features, poses_gt):
     ]
     """
     invPoses_gt = batch_invert_poses(poses_gt)
-    x_lim = (M[0,2]-50)/M[0,0] # camera sight limit c_u/f_u (camera coordinates)
-    y_lim = (M[1,2]-10)/M[1,1] # c_v/f_v
+    # FIXME: hardcoded 50,10. Remove these for normalized coordinates or use 0.98 * M[0,2] 0.98(M[1,2]
+    #x_lim = (M[0,2]-50)/M[0,0] # camera sight limit c_u/f_u (camera coordinates)
+    x_lim = (0.98*M[0,2])/M[0,0] # camera sight limit c_u/f_u (camera coordinates)
+    #y_lim = (M[1,2]-10)/M[1,1] # c_v/f_v
+    y_lim = (0.98*M[1,2])/M[1,1] # c_v/f_v
     z_low_lim = 0 # Point should be infront of camera BINGO!
     z_up_lim = camera_limit # Make it a realistic road with buildings etc.
     # Note that I reduced the camera range by 50/10 pixels from each edge to account for noise 
