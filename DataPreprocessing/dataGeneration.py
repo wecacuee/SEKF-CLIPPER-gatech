@@ -9,10 +9,15 @@ import pickle
 from scipy.linalg import expm,inv,block_diag
 #%%
 # Parameters Selection (you only need to modify this part):
+use_normalized_camera = True
 
+# if use_normalized_camera = False then M_file is needed
+#%% 
+# Data Needed
+# Intrinsics Matrix M_left:
 # path to KITTI intrinsics data
 M_file = osp.join((osp.dirname(__file__) or "."),
-                  "..", "stereoData8", "calib.txt")
+                    "..", "stereoData8_distributed", "calib.txt")
 
 MM = 400 #Number of time steps for the eight-shaped path (preferably above 40 steps)
 half_path = 10 #in meters
@@ -89,15 +94,18 @@ def pi(q):
     q[2,check_z0] = 0.001
     r = q/q[2,:]
     return r
-#%% 
-# Data Needed
-# Intrinsics Matrix M_left:
-M_left = np.genfromtxt(M_file, delimiter = ' ',max_rows = 1, usecols= (1,2,3,4,5,6,7,8,9,10,11,12))
-M_left = M_left.reshape(3,4)[:,0:3]
 
-# M_right
-M_right = np.genfromtxt(M_file, delimiter = ' ', skip_header=1, max_rows = 1, usecols= (1,2,3,4,5,6,7,8,9,10,11,12))
-M_right = M_right.reshape(3,4)[:,0:3]
+if not use_normalized_camera:
+    M_left = np.genfromtxt(M_file, delimiter = ' ',max_rows = 1, usecols= (1,2,3,4,5,6,7,8,9,10,11,12))
+    M_left = M_left.reshape(3,4)[:,0:3]
+
+    # M_right
+    M_right = np.genfromtxt(M_file, delimiter = ' ', skip_header=1, max_rows = 1, usecols= (1,2,3,4,5,6,7,8,9,10,11,12))
+    M_right = M_right.reshape(3,4)[:,0:3]
+else:
+
+    M_left = np.eye(4)
+    M_right = np.eye(4)
 
 # base line
 baseLine = 0.54
