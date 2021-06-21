@@ -1,6 +1,7 @@
 #%%
 import os
 import os.path as osp
+import warnings
 import numpy as np
 import math
 from matplotlib import pyplot as plt
@@ -73,7 +74,7 @@ def monocular_obs_model(T,map):
     Note that matrices M is not defined internally
     """
     P = np.append(np.eye(3),np.zeros((3,1)),axis=1)
-    aa = pi(np.matmul(T,map))
+    aa = projection_pi(np.matmul(T,map))
     z = np.matmul(M, np.matmul(P, aa))
     z = np.delete(z,2,0)
     return z
@@ -81,13 +82,13 @@ def monocular_obs_model(T,map):
 def stereo_obs_model(T,map,M):
     """observation model of monocular camera
     """
-    aa = pi(np.matmul(T,map))
+    aa = projection_pi(np.matmul(T,map))
     z = np.matmul(M, aa)
     return z
 
-def pi(q):
+def projection_pi(q):
     '''
-    pi function: normalizes a victor depending on its 3rd element.
+    projection_pi function: normalizes a victor depending on its 3rd element.
     '''
     # check if z is initialized 0 and change it to one
     check_z0 = np.logical_and(q[2,:]<0.001, q[2,:]>-0.001)
@@ -102,10 +103,12 @@ if not use_normalized_camera:
     # M_right
     M_right = np.genfromtxt(M_file, delimiter = ' ', skip_header=1, max_rows = 1, usecols= (1,2,3,4,5,6,7,8,9,10,11,12))
     M_right = M_right.reshape(3,4)[:,0:3]
+    img_shape = (2*M_left[0, 2], 2*M_left[1, 2]) # width(x), height(y)
 else:
 
     M_left = np.eye(4)
     M_right = np.eye(4)
+    img_shape = (np.sqrt(0.5), np.sqrt(0.5)) # width(x), height(y)
 
 # base line
 baseLine = 0.54
@@ -339,24 +342,27 @@ def generate_feature_message_positions(features, poses_gt):
     ]
     """
     invPoses_gt = batch_invert_poses(poses_gt)
-    # FIXME: hardcoded 50,10. Remove these for normalized coordinates or use 0.98 * M[0,2] 0.98(M[1,2]
-    #x_lim = (M[0,2]-50)/M[0,0] # camera sight limit c_u/f_u (camera coordinates)
-    x_lim = (0.98*M[0,2])/M[0,0] # camera sight limit c_u/f_u (camera coordinates)
-    #y_lim = (M[1,2]-10)/M[1,1] # c_v/f_v
-    y_lim = (0.98*M[1,2])/M[1,1] # c_v/f_v
-    z_low_lim = 0 # Point should be infront of camera BINGO!
-    z_up_lim = camera_limit # Make it a realistic road with buildings etc.
+    img_bounds_pxls = np.array([[img_shape[0]*0.02, img_shape[1]*0.02, 1],
+                                [img_shape[0]*0.98, img_shape[1]*0.98, 1]])
+    img_bounds_normed = np.linalg.solve(M_left[:3, :3], img_bounds_pxls.T).T
+    x_lims = img_bounds_normed[:, 0]
+    y_lims = img_bounds_normed[:, 1]
+    z_lims = (0, # Point should be infront of camera BINGO!
+              camera_limit) # Make it a realistic road with buildings etc.
     # Note that I reduced the camera range by 50/10 pixels from each edge to account for noise 
     # that will be added to generate the features.
     homo_features = np.append(features,np.ones((1,len(features[0]))),axis=0) # landmarks in normalized coordinates
     features_messages_positions = []
     for i in np.arange(len(poses_gt)):
         rel_features = opt_T_b @ invPoses_gt[i] @ homo_features #poses in camera frame (step i)
-        x_constraint = np.absolute(rel_features[0,:]/rel_features[2,:])<x_lim
-        y_constraint = np.absolute(rel_features[1,:]/rel_features[2,:])<y_lim
-        z_constraint = np.logical_and(rel_features[2,:]> z_low_lim, rel_features[2,:]< z_up_lim)
-        constraint = np.logical_and(x_constraint,np.logical_and(z_constraint, y_constraint))
-        ID_seen = np.array(np.where(constraint)).squeeze(axis=0)
+        rel_features_normed = projection_pi(rel_features)
+        x_constraint = (x_lims[0] < rel_features_normed[0, :]) & (rel_features_normed[0, :] < x_lims[1])
+        y_constraint = (y_lims[0] < rel_features_normed[1, :]) & (rel_features_normed[1, :] < y_lims[1])
+        z_constraint = (z_lims[0] < rel_features[2,:]) & (rel_features[2,:] < z_lims[1])
+        constraint = x_constraint & z_constraint & y_constraint
+        if not len(constraint):
+            warnings.warn("Empty constraint")
+        (ID_seen,) = np.where(constraint)
         message = {ID_seen[x]:homo_features[:,ID_seen[x]]
                    for x in np.arange(len(ID_seen))}
         features_messages_positions.append(message)
