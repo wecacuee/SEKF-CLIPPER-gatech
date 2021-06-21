@@ -10,7 +10,7 @@ import pickle
 from scipy.linalg import expm,inv,block_diag
 #%%
 # Parameters Selection (you only need to modify this part):
-use_normalized_camera = False
+use_normalized_camera = True
 
 # if use_normalized_camera = False then M_file is needed
 #%% 
