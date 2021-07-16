@@ -22,11 +22,13 @@ use_monocular = True
 # Data Needed
 # Intrinsics Matrix M_left:
 # path to KITTI intrinsics data
-M_file = osp.join((osp.dirname(__file__) or "."),
-                    "..", "stereoData8", "calib.txt")
+if not use_normalized_camera:
+    M_file = osp.join((osp.dirname(__file__) or "."),
+                        "..", "stereoData8", "calib.txt")
 
-# base line
-baseLine = 0.54
+if not use_monocular:
+    # base line
+    baseLine = 0.54
 
 MM = 400 #Number of time steps for the eight-shaped path (preferably above 40 steps)
 half_path = 10 #in meters
@@ -38,7 +40,7 @@ N = 50 # Number of features
 
 camera_limit = 10 # camera vision front limit in meters
 
-uv_sigma = 5*np.eye(2 if use_normalized_camera else 0) # perturbation covariance matrix of u v pixel coordinates (in pixels)
+uv_sigma = 5*np.eye(2 if use_monocular else 4) # perturbation covariance matrix of u v pixel coordinates (in pixels)
 
 prior_sigma = 0.7 # Covariance of the prior features positions for initialization if the triangulation is not used (in meters)
 
