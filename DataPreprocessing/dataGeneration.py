@@ -508,7 +508,7 @@ for t, fm_t in enumerate(features_messages):
     visible_feature_ids['id_1_%d' % t] = fm_t_ids
     fm_t_uvs = (np.vstack(list(fm_t.values())) 
                 if len(fm_t)
-                else np.zeros((0, 4)))
+                else np.zeros((0, 2 if use_monocular else 4)))
     visible_feature_uvs['uv_1_%d' % t] = fm_t_uvs
 
 for t, fm_t in enumerate(features_messages_2):
