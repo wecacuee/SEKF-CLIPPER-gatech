@@ -8,9 +8,14 @@ from matplotlib import pyplot as plt
 from matplotlib import animation
 import pickle
 from scipy.linalg import expm,inv,block_diag
+
+
 #%%
 # Parameters Selection (you only need to modify this part):
+
+np.random.seed(0)
 use_normalized_camera = True
+use_monocular = True
 
 # if use_normalized_camera = False then M_file is needed
 #%% 
@@ -19,6 +24,9 @@ use_normalized_camera = True
 # path to KITTI intrinsics data
 M_file = osp.join((osp.dirname(__file__) or "."),
                     "..", "stereoData8", "calib.txt")
+
+# base line
+baseLine = 0.54
 
 MM = 400 #Number of time steps for the eight-shaped path (preferably above 40 steps)
 half_path = 10 #in meters
@@ -30,7 +38,7 @@ N = 50 # Number of features
 
 camera_limit = 10 # camera vision front limit in meters
 
-uv_sigma = 5*np.eye(4) # perturbation covariance matrix of u v pixel coordinates (in pixels)
+uv_sigma = 5*np.eye(2 if use_normalized_camera else 0) # perturbation covariance matrix of u v pixel coordinates (in pixels)
 
 prior_sigma = 0.7 # Covariance of the prior features positions for initialization if the triangulation is not used (in meters)
 
@@ -79,11 +87,11 @@ def monocular_obs_model(T,map):
     z = np.delete(z,2,0)
     return z
 
-def stereo_obs_model(T,map,M):
+def stereo_obs_model(T,map_,M):
     """observation model of monocular camera
     """
-    aa = projection_pi(np.matmul(T,map))
-    z = np.matmul(M, aa)
+    aa = projection_pi(np.matmul(T,map_))
+    z = M @ aa
     return z
 
 def projection_pi(q):
@@ -110,14 +118,16 @@ else:
     M_right = np.eye(4)
     img_shape = (np.sqrt(0.5), np.sqrt(0.5)) # width(x), height(y)
 
-# base line
-baseLine = 0.54
-
 # Stereo Intrinsics
-M = np.zeros((4,4))
-M[:2,:3] = M_left[:2,:3]
-M[2:4,:3] = M_right[:2,:3]
-M[2,3] = -M_right[0,0]*baseLine
+if use_monocular:
+    M = np.zeros((2,4))
+    M[:2,:3] = M_left[:2,:3]
+else:
+    M = np.zeros((4,4))
+    M[:2,:3] = M_left[:2,:3]
+    M[2:4,:3] = M_right[:2,:3]
+    M[2,3] = -M_right[0,0]*baseLine
+
 # %%
 # Generate Ground Truth Trajectory
 # x values
@@ -175,7 +185,7 @@ for i in np.arange(len(xy_groundTruth[0])):
                 theta[i] = angle
             else:
                 theta[i] = 2*math.pi - angle
-        
+
 R_groundTruth = np.zeros((xy_groundTruth.shape[1],3,3))
 R_groundTruth[:,:,:] = np.eye(3)
 R_groundTruth[:,0,0] = R_groundTruth[:,1,1] = np.cos(theta)
@@ -419,7 +429,7 @@ anim.save('generatedData.mp4')
 invPoses_gt = batch_invert_poses(poses_gt)
 invPoses_gt_2 = batch_invert_poses(poses_gt_2)
 invPoses_gt_3 = batch_invert_poses(poses_gt_3)
-uv_mean = np.zeros(4)
+uv_mean = np.zeros(2 if use_monocular else 4 )
 features_messages = []
 features_messages_2 = []
 features_messages_3 = []
