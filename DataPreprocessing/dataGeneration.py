@@ -25,12 +25,13 @@ use_monocular = True
 if not use_normalized_camera:
     M_file = osp.join((osp.dirname(__file__) or "."),
                         "..", "stereoData8", "calib.txt")
-    uv_sigma = 5*np.eye(2 if use_monocular else 4) # perturbation covariance matrix of u v pixel coordinates (in pixels)
 
 if not use_monocular:
     # base line
     baseLine = 0.54
-    uv_sigma = 0.05*np.eye(2 if use_monocular else 4) # perturbation covariance matrix of u v pixel coordinates (in pixels)
+
+uv_sigma_scale = 0.05 if use_normalized_camera else 5
+uv_sigma = uv_sigma_scale*np.eye(2 if use_monocular else 4) # perturbation covariance matrix of u v pixel coordinates (in pixels)
 
 MM = 400 #Number of time steps for the eight-shaped path (preferably above 40 steps)
 half_path = 10 #in meters
