@@ -33,7 +33,7 @@ def generate_config():
     # path to KITTI intrinsics data
     if not C.use_normalized_camera:
         C.M_file = osp.join((osp.dirname(__file__) or "."),
-                            "..", "stereoData8", "calib.txt")
+                            "..", "data", "stereoData8", "calib.txt")
 
     if not C.use_monocular:
         # base line
@@ -56,7 +56,7 @@ def generate_config():
     C.prior_sigma = 0.7 # Covariance of the prior features positions for initialization if the triangulation is not used (in meters)
 
     # Path where generated data is to be saved.
-    C.save_path = osp.join((osp.dirname(__file__) or "."), '..', 'multi-robot-data-%d' % C.num_robots)
+    C.save_path = osp.join((osp.dirname(__file__) or "."), '..', 'data', 'multi-robot-data-%d' % C.num_robots)
     if not osp.exists(C.save_path):
         os.makedirs(C.save_path)
 
@@ -236,6 +236,7 @@ class Lissajous:
 class EightPattern:
     def __init__(s):
         pass
+
     def generate_ground_truth_trajectory(s, robot_num):
         # %%
         # Generate Ground Truth Trajectory
