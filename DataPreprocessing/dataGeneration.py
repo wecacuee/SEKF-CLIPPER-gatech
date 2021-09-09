@@ -23,7 +23,7 @@ def generate_config():
     C.seed = 0
     C.use_normalized_camera = True
     C.use_monocular = True
-    C.num_robots = 2
+    C.num_robots = 6
     C.colors = 'rbgcbyk'
 
     # if use_normalized_camera = False then M_file is needed
@@ -56,7 +56,9 @@ def generate_config():
     C.prior_sigma = 0.7 # Covariance of the prior features positions for initialization if the triangulation is not used (in meters)
 
     # Path where generated data is to be saved.
-    C.save_path = osp.join((osp.dirname(__file__) or "."), '..', 'multi-robot-data')
+    C.save_path = osp.join((osp.dirname(__file__) or "."), '..', 'multi-robot-data-%d' % C.num_robots)
+    if not osp.exists(C.save_path):
+        os.makedirs(C.save_path)
 
     # Transformation from body to optical frame
     C.opt_T_b = np.zeros((4,4))
@@ -191,6 +193,7 @@ class Lissajous:
         θ = np.arctan2(y[1:]-y[:-1], x[1:]-x[:-1])
         θ = np.hstack([θ, np.arctan2(y[0]-y[-1], x[0] - x[-1])]).reshape(-1, 1, 1)
         n = θ.shape[0]
+        θ = θ - np.pi/2 # Hack to make robots align with the trajectory
         zs = np.zeros((n, 1, 1))
         os = np.ones((n, 1, 1))
         Rθ = np.concatenate([
@@ -460,8 +463,8 @@ def generate_data(poses_gt):
                                       perturbed_relative_poses[r])
 
     #%%
-    n = 1
-    N = int(CONFIG.num_robots*len(poses_gt[0, ::2]))
+    n = 1 # number of landmarks per robot per pose
+    N = int(n*CONFIG.num_robots*len(poses_gt[0, ::2]))
     xy_mean = np.zeros(3) # Consider changing the y mean to somewhere above 0
     xy_sigma = np.diag([1,1,1])
     landmarks_distrib = np.random.multivariate_normal(xy_mean,xy_sigma,N)
@@ -499,7 +502,7 @@ def generate_data(poses_gt):
                             features[1,appearing_at_k[r]], s=10, color=color)
                 )
 
-                dxx, dzx, _ = poses_gt[0, k, :3, :3] @ np.array([0,1,0])*0.5
+                dxx, dzx, _ = poses_gt[r, k, :3, :3] @ np.array([0,1,0])*0.5
                 artists.append(
                     ax.arrow(poses_gt[r, k, 0, 3].T,
                              poses_gt[r, k, 1, 3].T,
