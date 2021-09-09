@@ -192,8 +192,7 @@ class Lissajous:
         y = B * np.sin(b*t)
         z = np.zeros_like(t)
 
-        θ = np.arctan2(y[1:]-y[:-1], x[1:]-x[:-1])
-        θ = np.hstack([θ, np.arctan2(y[0]-y[-1], x[0] - x[-1])]).reshape(-1, 1, 1)
+        θ = np.arctan2(np.roll(y, -1) - y, np.roll(x, -1) -x).reshape(-1, 1, 1)
         n = θ.shape[0]
         θ = θ - np.pi/2 # Hack to make robots align with the trajectory
         zs = np.zeros((n, 1, 1))
