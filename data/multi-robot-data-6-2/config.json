@@ -2,6 +2,8 @@
   "seed": 0, 
   "use_normalized_camera": true, 
   "use_monocular": true, 
+  "num_curves": 2, 
+  "robots_per_curve": 3, 
   "num_robots": 6, 
   "colors": "rbgcbyk", 
   "uv_sigma_scale": 0.05, 
@@ -22,7 +24,7 @@
   "N": 50, 
   "camera_limit": 10, 
   "prior_sigma": 0.7, 
-  "save_path": "DataPreprocessing/../data/multi-robot-data-6", 
+  "save_path": "DataPreprocessing/../data/multi-robot-data-6-2", 
   "opt_T_b": [
     [
       1.0, 

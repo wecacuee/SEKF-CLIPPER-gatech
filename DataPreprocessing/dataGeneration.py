@@ -23,7 +23,9 @@ def generate_config():
     C.seed = 0
     C.use_normalized_camera = True
     C.use_monocular = True
-    C.num_robots = 6
+    C.num_curves = 2
+    C.robots_per_curve = 3
+    C.num_robots = C.num_curves * C.robots_per_curve
     C.colors = 'rbgcbyk'
 
     # if use_normalized_camera = False then M_file is needed
@@ -56,7 +58,7 @@ def generate_config():
     C.prior_sigma = 0.7 # Covariance of the prior features positions for initialization if the triangulation is not used (in meters)
 
     # Path where generated data is to be saved.
-    C.save_path = osp.join((osp.dirname(__file__) or "."), '..', 'data', 'multi-robot-data-%d' % C.num_robots)
+    C.save_path = osp.join((osp.dirname(__file__) or "."), '..', 'data', 'multi-robot-data-%d-%d' % (C.num_robots, C.num_curves))
     if not osp.exists(C.save_path):
         os.makedirs(C.save_path)
 
@@ -201,7 +203,7 @@ class Lissajous:
             np.concatenate([np.sin(θ),  np.cos(θ), zs], axis=-1),
             np.concatenate([       zs,         zs, os], axis=-1),
             ], axis=-2)
-        assert is_valid_so3(Rθ)
+        #assert is_valid_so3(Rθ)
         poses_gt = np.zeros((t.shape[0], 4, 4))
         poses_gt[:, :3, :3] = Rθ
         poses_gt[:, 0, 3] = x
@@ -209,18 +211,23 @@ class Lissajous:
         poses_gt[:, 2, 3] = z
         poses_gt[:, 3, 3] = 1
 
-        robot_theta = 2*np.pi*robot_num/CONFIG.num_robots
-        robot_rot = np.array([
-            [np.cos(robot_theta), - np.sin(robot_theta), 0],
-            [np.sin(robot_theta),   np.cos(robot_theta), 0],
+        curve_num = robot_num // CONFIG.robots_per_curve
+        robot_num_on_curve = robot_num % CONFIG.robots_per_curve
+        curve_theta = 2*np.pi*curve_num/CONFIG.num_curves
+        curve_rot = np.array([
+            [np.cos(curve_theta), - np.sin(curve_theta), 0],
+            [np.sin(curve_theta),   np.cos(curve_theta), 0],
             [                  0,                     0, 1]])
-        robot_shift = robot_rot @ np.array([A*0.5, 0, 0])
-        robot_pos = np.vstack([np.hstack([robot_rot,  robot_shift.reshape(-1, 1)]),
-                               np.array([[0, 0, 0, 1]])])
-        assert is_valid_se3(robot_pos)
-        assert is_valid_se3(poses_gt)
-        poses_gt_robot = batch_matmul(robot_pos, poses_gt)
-        assert is_valid_se3(poses_gt_robot)
+        curve_shift = curve_rot @ np.array([A*0.5, 0, 0])
+        curve_trans = np.vstack([np.hstack([curve_rot,  curve_shift.reshape(-1, 1)]),
+                                 np.array([[0, 0, 0, 1]])])
+        #assert is_valid_se3(curve_trans)
+        #assert is_valid_se3(poses_gt)
+        poses_gt_curve = batch_matmul(curve_trans, poses_gt)
+
+        robot_shift = robot_num_on_curve * len(t) // CONFIG.robots_per_curve
+        poses_gt_robot = np.roll(poses_gt_curve, robot_shift, axis=0)
+        #assert is_valid_se3(poses_gt_robot)
         return poses_gt_robot
 
     def generate_ground_truth_trajectories(self):
