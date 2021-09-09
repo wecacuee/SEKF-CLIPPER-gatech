@@ -10,5 +10,5 @@ $ python3 -m pip install matplotlib scipy
 $ python3 DataPreprocessing/dataGeneration.py
 ```
 
-Generated data is stored in `stereoData8_distributed`
+Generated data is stored in `data/multi-robot-data-{num_robots}-{num_curves}`
 
