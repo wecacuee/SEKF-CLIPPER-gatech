@@ -56,7 +56,7 @@ def generate_config():
     C.prior_sigma = 0.7 # Covariance of the prior features positions for initialization if the triangulation is not used (in meters)
 
     # Path where generated data is to be saved.
-    C.save_path = osp.join((osp.dirname(__file__) or "."), '..', 'stereoData8_distributed')
+    C.save_path = osp.join((osp.dirname(__file__) or "."), '..', 'multi-robot-data')
 
     # Transformation from body to optical frame
     C.opt_T_b = np.zeros((4,4))
@@ -461,13 +461,12 @@ def generate_data(poses_gt):
 
     #%%
     n = 1
-    N = int(n*len(poses_gt[0]))
-    N = poses_gt[0, ::2,:3,3].shape[0]
+    N = int(CONFIG.num_robots*len(poses_gt[0, ::2]))
     xy_mean = np.zeros(3) # Consider changing the y mean to somewhere above 0
     xy_sigma = np.diag([1,1,1])
     landmarks_distrib = np.random.multivariate_normal(xy_mean,xy_sigma,N)
     #features = landmarks_distrib + np.repeat(poses_gt[:,:3,3],n,axis=0) #landmarks positions in world frame
-    features = landmarks_distrib + poses_gt[0, ::2,:3,3]
+    features = landmarks_distrib + poses_gt[:, ::2,:3,3].reshape(-1, 3)
     features = features.T
 
     plot_features_groundtruth(poses_gt, features)
