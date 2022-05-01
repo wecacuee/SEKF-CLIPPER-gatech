@@ -87,9 +87,9 @@ def generate_config():
         C.M[:2,:3] = C.M_left[:2,:3]
     else:
         C.M = np.zeros((4,4))
-        C.M[:2,:3] = M_left[:2,:3]
-        C.M[2:4,:3] = M_right[:2,:3]
-        C.M[2,3] = -M_right[0,0]*baseLine
+        C.M[:2,:3] = C.M_left[:2,:3]
+        C.M[2:4,:3] = C.M_right[:2,:3]
+        C.M[2,3] = -C.M_right[0,0]*C.baseLine
 
     return C
 
@@ -109,7 +109,6 @@ def batch_invert_poses(poses):
 
 def hatMapR3(v):
     """Hat Map for R3 Vectors"""
-    
     hat = np.zeros((v.shape[1],3,3))
     hat[:,0,1] = -v[2,:].T
     hat[:,0,2] = v[1,:].T
@@ -127,7 +126,7 @@ def hatMapR6(v):
     hat[:,0:3,3] = v[0:3,:].T
     return hat
 
-def monocular_obs_model(T,map):
+def monocular_obs_model(T,map,M):
     """observation model of monocular camera
     Note that matrices M is not defined internally
     """
@@ -404,7 +403,7 @@ def generate_feature_message_positions(features, poses_gt):
     # that will be added to generate the features.
     homo_features = np.append(features,np.ones((1,len(features[0]))),axis=0) # landmarks in normalized coordinates
     features_messages_positions = []
-    for i in np.arange(len(poses_gt)):
+    for i in np.arange(poses_gt.shape[1]):
         rel_features = CONFIG.opt_T_b @ invPoses_gt[i] @ homo_features #poses in camera frame (step i)
         rel_features_normed = projection_pi(rel_features)
         x_constraint = (x_lims[0] < rel_features_normed[0, :]) & (rel_features_normed[0, :] < x_lims[1])
@@ -461,7 +460,7 @@ def plot_features_groundtruth(poses_gt, features):
     plt.show()
 
 
-def generate_data(poses_gt):
+def generate_data(poses_gt, NOPLOT):
     perturbed_relative_poses = [None]*CONFIG.num_robots
     for r in range(CONFIG.num_robots):
         perturbed_relative_poses[r] = compute_perturbed_relative_poses(
@@ -479,54 +478,57 @@ def generate_data(poses_gt):
     features = landmarks_distrib + poses_gt[:, ::2,:3,3].reshape(-1, 3)
     features = features.T
 
-    plot_features_groundtruth(poses_gt, features)
+    if not NOPLOT:
+        plot_features_groundtruth(poses_gt, features)
+
     features_messages_positions = [None]*CONFIG.num_robots
     for r in range(CONFIG.num_robots):
         features_messages_positions[r] = generate_feature_message_positions(features, poses_gt[r, ...])
 
-    # Check Plot at pose k:
-    fig, ax = plt.subplots(1,1)
-    moviewriter = animation.FFMpegWriter(fps=15,
-                                         metadata=dict(title='GT animation of robots'))
-    with moviewriter.saving(fig, osp.join(CONFIG.save_path, 'generatedData.mp4'), 100):
-        artist_list = []
-        appearing_at_k = [None]*CONFIG.num_robots
-        for k in range(len(features_messages_positions[0])):
-            for r in range(CONFIG.num_robots):
-                appearing_at_k[r] = list(features_messages_positions[r][k].keys())
-            ax.clear()
-            ax.set_aspect('equal')
-            ax.set_xlim(-2.0*CONFIG.half_path, 2.0*CONFIG.half_path)
-            ax.set_ylim(-2.0*CONFIG.half_path, 2.00*CONFIG.half_path)
-            artists = []
-            for r, color in zip(range(CONFIG.num_robots), CONFIG.colors):
+    if not NOPLOT:
+        # Check Plot at pose k:
+        fig, ax = plt.subplots(1,1)
+        moviewriter = animation.FFMpegWriter(fps=15,
+                                             metadata=dict(title='GT animation of robots'))
+        with moviewriter.saving(fig, osp.join(CONFIG.save_path, 'generatedData.mp4'), 100):
+            artist_list = []
+            appearing_at_k = [None]*CONFIG.num_robots
+            for k in range(len(features_messages_positions[0])):
+                for r in range(CONFIG.num_robots):
+                    appearing_at_k[r] = list(features_messages_positions[r][k].keys())
+                ax.clear()
+                ax.set_aspect('equal')
+                ax.set_xlim(-2.0*CONFIG.half_path, 2.0*CONFIG.half_path)
+                ax.set_ylim(-2.0*CONFIG.half_path, 2.00*CONFIG.half_path)
+                artists = []
+                for r, color in zip(range(CONFIG.num_robots), CONFIG.colors):
 
-                artists.extend(
-                    ax.plot(poses_gt[r, :, 0, 3].T,
-                            poses_gt[r, :, 1, 3].T, color=color))
-                artists.append(
-                    ax.scatter(features[0,appearing_at_k[r]],
-                            features[1,appearing_at_k[r]], s=10, color=color)
-                )
+                    artists.extend(
+                        ax.plot(poses_gt[r, :, 0, 3].T,
+                                poses_gt[r, :, 1, 3].T, color=color))
+                    artists.append(
+                        ax.scatter(features[0,appearing_at_k[r]],
+                                features[1,appearing_at_k[r]], s=10, color=color)
+                    )
 
-                dxx, dzx, _ = poses_gt[r, k, :3, :3] @ np.array([0,1,0])*0.5
-                artists.append(
-                    ax.arrow(poses_gt[r, k, 0, 3].T,
-                             poses_gt[r, k, 1, 3].T,
-                             dxx, dzx,
-                             joinstyle='miter',
-                             linewidth=5,
-                             color=color))
-            artists.append(ax.set_title('features seen at time k = %d' % k))
-            artist_list.append(artists)
-            moviewriter.grab_frame()
-            plt.pause(0.01)
+                    dxx, dzx, _ = poses_gt[r, k, :3, :3] @ np.array([0,1,0])*0.5
+                    artists.append(
+                        ax.arrow(poses_gt[r, k, 0, 3].T,
+                                 poses_gt[r, k, 1, 3].T,
+                                 dxx, dzx,
+                                 joinstyle='miter',
+                                 linewidth=5,
+                                 color=color))
+                artists.append(ax.set_title('features seen at time k = %d' % k))
+                artist_list.append(artists)
+                moviewriter.grab_frame()
+                plt.pause(0.01)
 
-    #### ArtistAnimation is so hard to make it work
-    #anim = animation.ArtistAnimation(fig, artist_list, interval=50, repeat_delay=3000)
-    #anim.save(osp.join(CONFIG.save_path, 'generatedData.mp4'))
-    #plt.show()
-    moviewriter.finish()
+        #### ArtistAnimation is so hard to make it work
+        #anim = animation.ArtistAnimation(fig, artist_list, interval=50, repeat_delay=3000)
+        #anim.save(osp.join(CONFIG.save_path, 'generatedData.mp4'))
+        #plt.show()
+        moviewriter.finish()
 
 
     #%%
@@ -538,8 +540,8 @@ def generate_data(poses_gt):
         invPoses_gt[r] = batch_invert_poses(poses_gt[r, ...])
 
     uv_mean = np.zeros(2 if CONFIG.use_monocular else 4 )
-    features_messages = [[]]*CONFIG.num_robots
-    for i in np.arange(len(poses_gt)):
+    features_messages = [[] for _ in range(CONFIG.num_robots)]
+    for i in np.arange(poses_gt.shape[1]):
         feats_poses = [None]*CONFIG.num_robots
         features_position_now = [None]*CONFIG.num_robots
         for r in range(CONFIG.num_robots):
@@ -611,7 +613,7 @@ def main():
               open(osp.join(CONFIG.save_path, 'config.json'), 'w'),
               **JSON_DUMP_CONFIG)
     #generate_data(EightPattern().generate_ground_truth_trajectories())
-    generate_data(Lissajous().generate_ground_truth_trajectories())
+    generate_data(Lissajous().generate_ground_truth_trajectories(), NOPLOT = True)
 
 if __name__ == '__main__':
     main()
