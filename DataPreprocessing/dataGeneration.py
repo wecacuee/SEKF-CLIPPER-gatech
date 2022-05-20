@@ -5,6 +5,9 @@ import warnings
 import math
 import json
 import pickle
+from scipy.io import savemat
+import glob
+
 
 from argparse import Namespace
 
@@ -23,8 +26,8 @@ def generate_config():
     C.seed = 0
     C.use_normalized_camera = True
     C.use_monocular = True
-    C.num_curves = 2
-    C.robots_per_curve = 3
+    C.num_curves = 3
+    C.robots_per_curve = 1
     C.num_robots = C.num_curves * C.robots_per_curve
     C.colors = 'rbgcbyk'
 
@@ -403,7 +406,7 @@ def generate_feature_message_positions(features, poses_gt):
     # that will be added to generate the features.
     homo_features = np.append(features,np.ones((1,len(features[0]))),axis=0) # landmarks in normalized coordinates
     features_messages_positions = []
-    for i in np.arange(poses_gt.shape[1]):
+    for i in np.arange(np.amax(poses_gt.shape)):
         rel_features = CONFIG.opt_T_b @ invPoses_gt[i] @ homo_features #poses in camera frame (step i)
         rel_features_normed = projection_pi(rel_features)
         x_constraint = (x_lims[0] < rel_features_normed[0, :]) & (rel_features_normed[0, :] < x_lims[1])
@@ -541,7 +544,7 @@ def generate_data(poses_gt, NOPLOT):
 
     uv_mean = np.zeros(2 if CONFIG.use_monocular else 4 )
     features_messages = [[] for _ in range(CONFIG.num_robots)]
-    for i in np.arange(poses_gt.shape[1]):
+    for i in np.arange(np.amax(poses_gt.shape)):
         feats_poses = [None]*CONFIG.num_robots
         features_position_now = [None]*CONFIG.num_robots
         for r in range(CONFIG.num_robots):
@@ -593,6 +596,7 @@ def generate_data(poses_gt, NOPLOT):
     np.savez(gt_poses_file, *[poses_gt[r] for r in range(CONFIG.num_robots)])
     np.savez(inputs_file, *perturbed_relative_poses)
     np.savez(features_gt_file, features)
+
     # %%
 
 class NumpyJSONEncoder(json.JSONEncoder):
@@ -614,6 +618,15 @@ def main():
               **JSON_DUMP_CONFIG)
     #generate_data(EightPattern().generate_ground_truth_trajectories())
     generate_data(Lissajous().generate_ground_truth_trajectories(), NOPLOT = True)
+
+    # convert *nzp files to *mat files
+    npzFiles = glob.glob(CONFIG.save_path + "/*.npz", recursive=True)
+
+    for f in npzFiles:
+        fm = os.path.splitext(f)[0] + '.mat'
+        d = np.load(f)
+        savemat(fm, d)
+        print('generated ', fm, 'from', f)
 
 if __name__ == '__main__':
     main()
